@@ -4,7 +4,6 @@ import {
   Receipt, Info, MapPin, AlertCircle, ChevronRight,
   Wallet, Calendar, TrendingUp,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { formatCurrency, formatDate, capitalize, computeInterest } from '@/lib/utils';
 import { Badge, Card, EmptyState } from '@/components/ui';
@@ -28,58 +27,56 @@ interface PaymentWithDetails extends Omit<Payment, 'receipt' | 'allocations'> {
 }
 
 export function TaxpayerPortal() {
-  const { taxpayer, signOut } = useAuth();
+  const { taxpayer, taxpayerSessionToken, signOut } = useAuth();
   const [view, setView] = useState<PortalView>('overview');
   const [properties, setProperties] = useState<Property[]>([]);
   const [charges, setCharges] = useState<TaxChargeWithDetails[]>([]);
   const [payments, setPayments] = useState<PaymentWithDetails[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   const [selectedPropertyCharges, setSelectedPropertyCharges] = useState<TaxChargeWithDetails[] | null>(null);
 
   useEffect(() => {
     if (!taxpayer) return;
+    let cancelled = false;
     async function loadData() {
       setLoading(true);
+      setDataError(null);
+      if (!taxpayerSessionToken) {
+        setDataError('Your session is missing or expired. Please sign in again.');
+        setLoading(false);
+        return;
+      }
 
-      const [propsRes, chargesRes, paymentsRes] = await Promise.all([
-        supabase
-          .from('properties')
-          .select(`*,
-            barangay:jurisdictions!barangay_id(name),
-            units:property_units(*),
-            interests:property_interests(*, party:parties(*))
-          `)
-          .order('created_at', { ascending: false }),
-        supabase
-          .from('tax_charges')
-          .select(`*,
-            property:properties!property_id(pin, tax_declaration_number),
-            property_unit:property_units!property_unit_id(unit_type, classification),
-            assessment:assessments!assessment_id(market_value, assessment_level_percent, assessed_value)
-          `)
-          .neq('status', 'cancelled')
-          .order('due_date', { ascending: true }),
-        supabase
-          .from('payments')
-          .select(`*,
-            receipt:receipts(receipt_number, status),
-            allocations:payment_allocations(
-              allocated_amount,
-              tax_charge:tax_charges(tax_year, quarter, levy_type)
-            )
-          `)
-          .eq('taxpayer_id', (taxpayer as TaxpayerUser).id)
-          .order('payment_date', { ascending: false })
-          .limit(20),
-      ]);
-
-      if (propsRes.data) setProperties(propsRes.data as unknown as Property[]);
-      if (chargesRes.data) setCharges(chargesRes.data as unknown as TaxChargeWithDetails[]);
-      if (paymentsRes.data) setPayments(paymentsRes.data as unknown as PaymentWithDetails[]);
-      setLoading(false);
+      try {
+        const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/taxpayer-auth`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${taxpayerSessionToken}`,
+          },
+          body: JSON.stringify({ action: 'portal_data' }),
+        });
+        const data = await response.json();
+        if (!response.ok) {
+          throw new Error(data.error || 'Unable to load taxpayer account data. Please try again.');
+        }
+        if (cancelled) return;
+        setProperties(data.properties || []);
+        setCharges(data.charges || []);
+        setPayments(data.payments || []);
+      } catch (error) {
+        if (!cancelled) {
+          setDataError(error instanceof Error ? error.message : 'Unable to load taxpayer account data. Please try again.');
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     }
     loadData();
-  }, [taxpayer]);
+    return () => { cancelled = true; };
+  }, [taxpayer, taxpayerSessionToken]);
 
   const totalDue = charges.reduce((sum, c) => sum + (c.balance || 0), 0);
   const totalInterest = charges.reduce((sum, c) => {
@@ -162,7 +159,21 @@ export function TaxpayerPortal() {
 
         {/* Main content */}
         <div className="flex-1 min-w-0">
-          {view === 'overview' && (
+          {dataError && (
+            <Card className="mb-5 border-red-200 bg-red-50 p-5">
+              <div className="flex items-start gap-3" role="alert">
+                <AlertCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-red-600" />
+                <div>
+                  <p className="font-medium text-red-900">We could not load your taxpayer account</p>
+                  <p className="mt-1 text-sm text-red-800">{dataError}</p>
+                  <button onClick={signOut} className="mt-3 rounded-lg bg-red-700 px-3 py-2 text-sm font-medium text-white hover:bg-red-800">
+                    Return to sign in
+                  </button>
+                </div>
+              </div>
+            </Card>
+          )}
+          {!dataError && view === 'overview' && (
             <OverviewView
               taxpayer={taxpayer}
               properties={properties}
@@ -176,7 +187,7 @@ export function TaxpayerPortal() {
             />
           )}
 
-          {view === 'properties' && (
+          {!dataError && view === 'properties' && (
             <PropertiesView
               properties={properties}
               charges={charges}
@@ -187,7 +198,7 @@ export function TaxpayerPortal() {
             />
           )}
 
-          {view === 'tax_dues' && (
+          {!dataError && view === 'tax_dues' && (
             <TaxDuesView
               charges={selectedPropertyCharges || charges}
               totalDue={totalDue}
@@ -198,11 +209,11 @@ export function TaxpayerPortal() {
             />
           )}
 
-          {view === 'payments' && (
+          {!dataError && view === 'payments' && (
             <PaymentsView payments={payments} />
           )}
 
-          {view === 'help' && (
+          {!dataError && view === 'help' && (
             <HelpView properties={properties} charges={charges} />
           )}
         </div>

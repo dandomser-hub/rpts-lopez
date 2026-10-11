@@ -5,6 +5,7 @@ import type { StaffUser, TaxpayerUser, StaffRole, Office } from '@/lib/types';
 interface AuthContextType {
   staffUser: StaffUser | null;
   taxpayer: TaxpayerUser | null;
+  taxpayerSessionToken: string | null;
   loading: boolean;
   staffRole: StaffRole | null;
   staffOffice: Office | null;
@@ -19,6 +20,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [staffUser, setStaffUser] = useState<StaffUser | null>(null);
   const [taxpayer, setTaxpayer] = useState<TaxpayerUser | null>(null);
+  const [taxpayerSessionToken, setTaxpayerSessionToken] = useState<string | null>(null);
   const [staffRole, setStaffRole] = useState<StaffRole | null>(null);
   const [staffOffice, setStaffOffice] = useState<Office | null>(null);
   const [loading, setLoading] = useState(true);
@@ -34,11 +36,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const storedTaxpayer = localStorage.getItem('taxpayer_session');
+      const storedTaxpayerToken = localStorage.getItem('taxpayer_access_token');
+      if (mounted && !storedTaxpayer && storedTaxpayerToken) {
+        localStorage.removeItem('taxpayer_access_token');
+      }
       if (mounted && storedTaxpayer) {
         try {
-          setTaxpayer(JSON.parse(storedTaxpayer));
+          if (storedTaxpayerToken) {
+            setTaxpayer(JSON.parse(storedTaxpayer));
+            setTaxpayerSessionToken(storedTaxpayerToken);
+          } else {
+            localStorage.removeItem('taxpayer_session');
+          }
         } catch {
           localStorage.removeItem('taxpayer_session');
+          localStorage.removeItem('taxpayer_access_token');
         }
       }
 
@@ -101,6 +113,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
         },
         body: JSON.stringify({ action: 'login', taxpayer_id: taxpayerId, password }),
@@ -108,27 +121,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (!response.ok) {
         const data = await response.json();
-        return { error: data.error || 'Login failed' };
+        return { error: data.error || 'Login failed. Please check your details and try again.' };
       }
 
       const data = await response.json();
-      if (data.taxpayer) {
+      if (data.taxpayer && data.session_token) {
         localStorage.setItem('taxpayer_session', JSON.stringify(data.taxpayer));
+        localStorage.setItem('taxpayer_access_token', data.session_token);
         setTaxpayer(data.taxpayer);
+        setTaxpayerSessionToken(data.session_token);
         await supabase.auth.signOut();
         return { error: null };
       }
-      return { error: 'Login failed' };
+      return { error: 'Login failed. Please try again.' };
     } catch {
       return { error: 'Network error. Please try again.' };
     }
   }
 
   async function signOut(): Promise<void> {
+    const sessionToken = localStorage.getItem('taxpayer_access_token');
+    if (sessionToken) {
+      try {
+        await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/taxpayer-auth`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${sessionToken}`,
+          },
+          body: JSON.stringify({ action: 'logout' }),
+        });
+      } catch {
+        // Clear the local session even if the revocation request cannot reach the server.
+      }
+    }
     await supabase.auth.signOut();
     localStorage.removeItem('taxpayer_session');
+    localStorage.removeItem('taxpayer_access_token');
     setStaffUser(null);
     setTaxpayer(null);
+    setTaxpayerSessionToken(null);
     setStaffRole(null);
     setStaffOffice(null);
   }
@@ -140,7 +173,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <AuthContext.Provider value={{
-      staffUser, taxpayer, loading, staffRole, staffOffice,
+      staffUser, taxpayer, taxpayerSessionToken, loading, staffRole, staffOffice,
       signInStaff, signInTaxpayer, signOut, hasPermission,
     }}>
       {children}
