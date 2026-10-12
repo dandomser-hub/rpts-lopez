@@ -50,7 +50,7 @@ Deno.serve(async (req: Request) => {
     const action = body?.action;
 
     if (action === "login") {
-      const taxpayerId = typeof body.taxpayer_id === "string" ? body.taxpayer_id.trim() : "";
+      const taxpayerId = typeof body.taxpayer_id === "string" ? body.taxpayer_id.trim().toUpperCase() : "";
       const password = typeof body.password === "string" ? body.password : "";
       if (!taxpayerId || !password) {
         return jsonResponse({ error: "Invalid Taxpayer ID or password" }, 401);
