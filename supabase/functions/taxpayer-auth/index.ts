@@ -56,22 +56,7 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Invalid Taxpayer ID or password" }, 401);
       }
 
-      const { data: taxpayer, error: lookupError } = await supabase
-        .from("taxpayer_users")
-        .select("id, taxpayer_id, full_name, email, phone, address, is_active")
-        .eq("taxpayer_id", taxpayerId)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (lookupError) {
-        console.error("taxpayer_auth_account_lookup_failed", lookupError.message);
-        return jsonResponse({ error: "Authentication service is unavailable. Please try again later." }, 503);
-      }
-      if (!taxpayer) {
-        console.warn("taxpayer_auth_account_missing_or_inactive");
-        return jsonResponse({ error: "Invalid Taxpayer ID or password" }, 401);
-      }
-
+      // Verify password via SECURITY DEFINER function (case-insensitive ID match inside).
       const { data: verified, error: verifyError } = await supabase.rpc(
         "verify_taxpayer_password",
         { input_taxpayer_id: taxpayerId, input_password: password },
@@ -82,7 +67,23 @@ Deno.serve(async (req: Request) => {
         return jsonResponse({ error: "Authentication service is unavailable. Please try again later." }, 503);
       }
       if (!verified) {
-        console.warn("taxpayer_auth_password_mismatch");
+        return jsonResponse({ error: "Invalid Taxpayer ID or password" }, 401);
+      }
+
+      // Fetch the taxpayer record using case-insensitive match for session creation.
+      const safeForIlike = (s: string) => s.replace(/[%_\\]/g, (m) => "\\" + m);
+      const { data: taxpayer, error: lookupError } = await supabase
+        .from("taxpayer_users")
+        .select("id, taxpayer_id, full_name, email, phone, address, is_active")
+        .ilike("taxpayer_id", safeForIlike(taxpayerId))
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (lookupError) {
+        console.error("taxpayer_auth_account_lookup_failed", lookupError.message);
+        return jsonResponse({ error: "Authentication service is unavailable. Please try again later." }, 503);
+      }
+      if (!taxpayer) {
         return jsonResponse({ error: "Invalid Taxpayer ID or password" }, 401);
       }
 
