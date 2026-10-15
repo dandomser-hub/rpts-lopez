@@ -27,37 +27,48 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let mounted = true;
 
     async function loadSession() {
-      const { data: { session } } = await supabase.auth.getSession();
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
-      if (mounted && session?.user) {
-        await loadStaffUser(session.user.id);
-      }
-
-      const storedTaxpayer = localStorage.getItem('taxpayer_session');
-      if (mounted && storedTaxpayer) {
-        try {
-          setTaxpayer(JSON.parse(storedTaxpayer));
-        } catch {
-          localStorage.removeItem('taxpayer_session');
+        if (mounted && session?.user) {
+          await loadStaffUser(session.user.id);
         }
-      }
 
-      if (mounted) setLoading(false);
+        const storedTaxpayer = localStorage.getItem('taxpayer_session');
+        if (mounted && storedTaxpayer) {
+          try {
+            setTaxpayer(JSON.parse(storedTaxpayer));
+          } catch {
+            localStorage.removeItem('taxpayer_session');
+          }
+        }
+      } finally {
+        if (mounted) setLoading(false);
+      }
     }
 
-    loadSession();
+    void loadSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      (async () => {
-        if (session?.user) {
-          await loadStaffUser(session.user.id);
-        } else {
-          setStaffUser(null);
-          setStaffRole(null);
-          setStaffOffice(null);
-        }
-        if (mounted) setLoading(false);
-      })();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (!mounted) return;
+
+      if (event === 'SIGNED_OUT' || !session?.user) {
+        setStaffUser(null);
+        setStaffRole(null);
+        setStaffOffice(null);
+        setLoading(false);
+        return;
+      }
+
+      if (event === 'SIGNED_IN') {
+        const authId = session.user.id;
+        window.setTimeout(() => {
+          if (!mounted) return;
+          void loadStaffUser(authId).finally(() => {
+            if (mounted) setLoading(false);
+          });
+        }, 0);
+      }
     });
 
     return () => {
@@ -66,35 +77,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  async function loadStaffUser(authId: string) {
-    const { data, error } = await supabase
-      .from('staff_users')
-      .select(`
-        *,
-        role:staff_roles(*),
-        office:offices(*)
-      `)
-      .eq('auth_id', authId)
-      .eq('is_active', true)
-      .maybeSingle();
+  async function loadStaffUser(authId: string): Promise<string | null> {
+    try {
+      const { data, error } = await supabase
+        .from('staff_users')
+        .select('*, role:staff_roles(*), office:offices(*)')
+        .eq('auth_id', authId)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    if (data && !error) {
+      if (error) {
+        setStaffUser(null);
+        setStaffRole(null);
+        setStaffOffice(null);
+        return 'Your account signed in, but its staff profile could not be loaded. Please contact an administrator.';
+      }
+      if (!data) {
+        setStaffUser(null);
+        setStaffRole(null);
+        setStaffOffice(null);
+        return 'Your credentials were accepted, but no active staff profile is linked to this account.';
+      }
+
       setStaffUser(data);
       setStaffRole(data.role);
       setStaffOffice(data.office);
-    } else {
+      return null;
+    } catch {
       setStaffUser(null);
       setStaffRole(null);
       setStaffOffice(null);
+      return 'Unable to load your staff profile. Check your connection and try again.';
     }
   }
 
   async function signInStaff(email: string, password: string): Promise<{ error: string | null }> {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-    return { error: null };
-  }
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+      if (error) return { error: error.message };
+      if (!data.user) return { error: 'Sign-in did not return a user account.' };
 
+      const profileError = await loadStaffUser(data.user.id);
+      if (profileError) {
+        await supabase.auth.signOut();
+        return { error: profileError };
+      }
+      return { error: null };
+    } catch {
+      return { error: 'Unable to contact the sign-in service. Check your connection and try again.' };
+    }
+  }
   async function signInTaxpayer(taxpayerId: string, password: string): Promise<{ error: string | null }> {
     try {
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/taxpayer-auth`, {

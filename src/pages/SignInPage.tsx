@@ -12,7 +12,6 @@ export function SignInPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -28,13 +27,17 @@ export function SignInPage() {
     setLoading(false);
   }
 
-  function fillDemo(account: { email?: string; taxpayer_id?: string; password: string }) {
-    if (account.email) setEmail(account.email);
+  function fillDemo(account: { taxpayer_id: string; password: string }) {
     if (account.taxpayer_id) setTaxpayerId(account.taxpayer_id);
     setPassword(account.password);
     setError(null);
   }
 
+  function fillStaffAccount(account: { email: string; password: string }) {
+    setEmail(account.email);
+    setPassword(account.password);
+    setError(null);
+  }
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-800 via-slate-900 to-blue-950 flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -130,25 +133,29 @@ export function SignInPage() {
             </button>
           </form>
 
-          <div className="border-t border-gray-100 px-6 py-4">
+          {mode === 'staff' && <div className="border-t border-gray-100 px-6 py-4">
             <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
               Demo Accounts
             </p>
-            {mode === 'staff' ? (
-              <div className="space-y-1">
-                {DEMO_STAFF_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    onClick={() => fillDemo(acc)}
-                    className="flex w-full items-center justify-between rounded px-2 py-1 text-xs text-gray-600 hover:bg-gray-50 transition-colors"
-                  >
-                    <span>{acc.role}</span>
-                    <span className="font-mono text-gray-400">{acc.email}</span>
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <div className="space-y-1">
+            <div className="space-y-1">
+              {DEMO_STAFF_ACCOUNTS.map((account) => (
+                <button
+                  key={account.email}
+                  type="button"
+                  onClick={() => fillStaffAccount(account)}
+                  className="flex w-full items-center justify-between gap-3 rounded px-2 py-1 text-left text-xs text-gray-600 hover:bg-gray-50 transition-colors"
+                >
+                  <span>{account.name}</span>
+                  <span className="truncate font-mono text-gray-400">{account.email}</span>
+                </button>
+              ))}
+            </div>
+          </div>}
+          {mode === 'taxpayer' && <div className="border-t border-gray-100 px-6 py-4">
+            <p className="mb-2 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              Demo Accounts
+            </p>
+            <div className="space-y-1">
                 {DEMO_TAXPAYER_ACCOUNTS.map((acc) => (
                   <button
                     key={acc.taxpayer_id}
@@ -159,9 +166,8 @@ export function SignInPage() {
                     <span className="font-mono text-gray-400">{acc.taxpayer_id}</span>
                   </button>
                 ))}
-              </div>
-            )}
-          </div>
+            </div>
+          </div>}
         </div>
 
         <p className="mt-4 text-center text-xs text-blue-200">

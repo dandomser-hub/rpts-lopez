@@ -30,7 +30,7 @@ BEGIN
     RETURN false;
   END IF;
 
-  RETURN stored_hash = crypt(input_password, stored_hash);
+  RETURN stored_hash = extensions.crypt(input_password, stored_hash);
 END;
 $$;
 

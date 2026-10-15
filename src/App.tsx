@@ -13,6 +13,7 @@ import { ReportsPage } from '@/pages/ReportsPage';
 import { ConfigurationPage } from '@/pages/ConfigurationPage';
 import { UserManagementPage } from '@/pages/UserManagementPage';
 import { TaxpayerPortal } from '@/pages/TaxpayerPortal';
+import { NAV_ITEMS } from '@/lib/constants';
 
 function AppContent() {
   const { staffUser, taxpayer, loading, hasPermission } = useAuth();
@@ -34,7 +35,17 @@ function AppContent() {
     return <SignInPage />;
   }
 
-  const page = hasPermission(activePage) ? activePage : 'dashboard';
+  const page = hasPermission(activePage)
+    ? activePage
+    : NAV_ITEMS.find((item) => hasPermission(item.key))?.key;
+
+  if (!page) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-50 p-6 text-center text-gray-600">
+        This account does not have access to any system pages. Contact an administrator.
+      </div>
+    );
+  }
 
   const renderPage = () => {
     switch (page) {
