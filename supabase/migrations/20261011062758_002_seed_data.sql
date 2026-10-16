@@ -64,8 +64,8 @@ ON CONFLICT (code) DO NOTHING;
 -- STAFF ROLES
 -- ============================================================
 INSERT INTO staff_roles (code, name, description, permissions) VALUES
-  ('admin', 'Administrator', 'Full system access including configuration and user management',
-    ARRAY['dashboard','properties','assessments','billing','collection','reconciliation','cases','reports','configuration','user_management']),
+  ('admin', 'Administrator', 'Configuration and user management only',
+    ARRAY['configuration','user_management']),
   ('assessor', 'Municipal Assessor', 'Property registry, valuation, assessment preparation and approval',
     ARRAY['dashboard','properties','assessments','reports','cases']),
   ('treasurer', 'Municipal Treasurer', 'Billing supervision, collection oversight, and treasury controls',
@@ -272,10 +272,10 @@ BEGIN
   VALUES
     ('TP-2026-0001', 'Juan dela Cruz Santos', 'juan.santos@email.com', '0917-123-4567',
      'Brgy. Poblacion, Lopez, Quezon',
-     crypt('taxpayer123', gen_salt('bf'))),
+     extensions.crypt('taxpayer123', extensions.gen_salt('bf'))),
     ('TP-2026-0002', 'Lopez Trading Corporation', 'info@lopeztrading.com', '042-123-4567',
      'Brgy. Magallanes, Lopez, Quezon',
-     crypt('taxpayer123', gen_salt('bf')))
+     extensions.crypt('taxpayer123', extensions.gen_salt('bf')))
   ON CONFLICT DO NOTHING;
 END $$;
 

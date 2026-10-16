@@ -44,10 +44,9 @@ export function TaxpayerPortal() {
       const [propsRes, chargesRes, paymentsRes] = await Promise.all([
         supabase
           .from('properties')
-          .select(`*,
+          .select(`id, pin, tax_declaration_number, arp_number, barangay_id, location_address, status, created_at,
             barangay:jurisdictions!barangay_id(name),
-            units:property_units(*),
-            interests:property_interests(*, party:parties(*))
+            units:property_units(*)
           `)
           .order('created_at', { ascending: false }),
         supabase
@@ -117,7 +116,7 @@ export function TaxpayerPortal() {
               <Building2 className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold">Taxpayer Portal</h1>
+              <h1 className="text-lg font-bold">Citizens Portal</h1>
               <p className="text-xs text-blue-200">{MUNICIPALITY_NAME}, Quezon Province</p>
             </div>
           </div>
@@ -369,7 +368,7 @@ function PropertiesView({
       {properties.map((prop) => {
         const propCharges = charges.filter(c => c.property_id === prop.id);
         const propBalance = propCharges.reduce((s, c) => s + c.balance, 0);
-        const ownerInterest = prop.interests?.find(i => i.interest_type === 'declared_owner');
+        
         const barangayName = (prop.barangay as unknown as { name: string })?.name || '—';
 
         return (
@@ -386,7 +385,7 @@ function PropertiesView({
                   <p className="flex items-center gap-1.5"><MapPin className="h-4 w-4 text-gray-400" /> {prop.location_address || '—'}</p>
                   <p>Barangay: <span className="font-medium text-gray-700">{barangayName}</span></p>
                   <p>Tax Declaration: <span className="font-mono text-gray-700">{prop.tax_declaration_number || '—'}</span></p>
-                  <p>Owner: <span className="font-medium text-gray-700">{ownerInterest?.party?.name || '—'}</span></p>
+                  <p>Account holder: <span className="font-medium text-gray-700">{taxpayer?.full_name || '—'}</span></p>
                 </div>
                 {prop.units && prop.units.length > 0 && (
                   <div className="mt-3 flex flex-wrap gap-2">

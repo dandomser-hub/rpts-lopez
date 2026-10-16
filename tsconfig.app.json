@@ -16,6 +16,7 @@
 
     /* Path alias — depth-invariant imports for src (@/foo === src/foo from any file) */
     "baseUrl": ".",
+    "ignoreDeprecations": "6.0",
     "paths": {
       "@/*": ["src/*"]
     },

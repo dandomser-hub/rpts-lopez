@@ -35,8 +35,8 @@ export interface TaxpayerUser {
   full_name: string;
   phone: string | null;
   address: string | null;
-  password_hash: string;
   is_active: boolean;
+  auth_id: string | null;
 }
 
 export interface Jurisdiction {

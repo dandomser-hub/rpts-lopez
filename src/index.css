@@ -1,3 +1,99 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+
+.citizen-access {
+  display: grid;
+  grid-template-columns: minmax(390px, 0.78fr) minmax(0, 1.22fr);
+  background: url('./assets/lopez-login-background.jpg') center center / cover no-repeat;
+}
+
+.citizen-form-panel {
+  display: flex;
+  background-color: rgb(255 255 255 / 82%);
+  min-height: 100vh;
+  align-items: center;
+  justify-content: center;
+  padding: 2.5rem clamp(2rem, 6vw, 6rem);
+  backdrop-filter: blur(8px);
+}
+
+.citizen-form-inner {
+  width: 100%;
+  max-width: 420px;
+}
+
+.citizen-input {
+  display: block;
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.55rem;
+  background: #fff;
+  padding: 0.72rem 0.85rem;
+  color: #0f172a;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.citizen-input:focus {
+  border-color: #1e40af;
+  box-shadow: 0 0 0 3px rgb(30 64 175 / 12%);
+}
+
+.citizen-hero {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  flex-direction: column;
+  justify-content: center;
+  padding: 5rem clamp(3rem, 7vw, 8rem) 10rem;
+  background: transparent;
+}
+
+.citizen-hero::before {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  content: "";
+  background: rgb(255 255 255 / 58%);
+  pointer-events: none;
+}
+
+.citizen-hero-copy {
+  position: relative;
+  z-index: 2;
+  max-width: 700px;
+  width: 100%;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 3vw, 3rem);
+  border: 1px solid rgb(255 255 255 / 80%);
+  border-radius: 1.5rem;
+  background: rgb(255 255 255 / 68%);
+  box-shadow: 0 16px 48px rgb(15 23 42 / 10%);
+  backdrop-filter: blur(4px);
+}
+
+.citizen-hero-footer {
+  position: absolute;
+  z-index: 2;
+  bottom: 2rem;
+  left: 3rem;
+  right: 3rem;
+  display: flex;
+  justify-content: space-between;
+  padding: 0.65rem 1rem;
+  border: 1px solid rgb(255 255 255 / 75%);
+  border-radius: 0.75rem;
+  background: rgb(255 255 255 / 72%);
+  color: #16466f;
+  font-size: 0.8rem;
+  backdrop-filter: blur(4px);
+}
+
+@media (max-width: 1023px) {
+  .citizen-access { display: block; }
+  .citizen-form-panel { min-height: 100svh; padding: 2rem 1.25rem; }
+  .citizen-form-inner { max-width: 440px; }
+}

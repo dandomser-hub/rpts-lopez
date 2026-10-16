@@ -75,7 +75,7 @@ export function UserManagementPage() {
     setTaxpayerError(null);
     const { data, error: queryError } = await supabase
       .from('taxpayer_users')
-      .select('*')
+      .select('id, taxpayer_id, email, full_name, phone, address, is_active, auth_id, created_at')
       .order('created_at', { ascending: false });
 
     if (queryError) {
@@ -503,13 +503,17 @@ function AddStaffModal({
 
     setSubmitting(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('Your session has expired. Sign in again and retry.');
+
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/staff-management`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+            'Authorization': `Bearer ${session.access_token}`,
+            'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
           },
           body: JSON.stringify({
             action: 'create_staff',
